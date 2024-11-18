@@ -324,11 +324,15 @@ wire [10:0] avs = ~sad_sel_n ? mcpu_addr[10:0] : { hcount[1], xv[7:3], xh[7:3] }
 //);
 
 dualport_2clk_ram #(.FALLING_A(1),.ADDR_WIDTH(14),.DATA_WIDTH(8)) mcpu_rom0(
-	.clock_a(clk_sys),
-	.address_a(mcpu_rom0_addr),
-	.data_a(mcpu_rom_data ),
-	.q_a(mcpu_rom0_q),
-	.wren_a(mcpu_rom0_wren_a)
+	.clock_a(dn_clk),
+	.wren_a(mcpu_rom0_wren_a),
+	.address_a(ioctl_addr[13:0]),
+	.data_a(mcpu_rom_data),
+	
+	.clock_b(clk_sys),
+	.address_b(mcpu_rom0_addr),
+	.q_b(mcpu_rom0_q)
+	
 );
 
 //dpram #(14,8) mcpu_rom1(
@@ -341,11 +345,14 @@ dualport_2clk_ram #(.FALLING_A(1),.ADDR_WIDTH(14),.DATA_WIDTH(8)) mcpu_rom0(
 //);
 
 dualport_2clk_ram #(.FALLING_A(1),.ADDR_WIDTH(14),.DATA_WIDTH(8)) mcpu_rom1(
-	.clock_a(clk_sys),
-	.address_a(mcpu_rom1_addr),
+	.clock_a(dn_clk),
+	.wren_a(mcpu_rom1_wren_a),
+	.address_a(ioctl_addr[13:0]),
 	.data_a(mcpu_rom_data),
-	.q_a(mcpu_rom1_q),
-	.wren_a(mcpu_rom1_wren_a)
+	
+	.clock_b(clk_sys),
+	.address_b(mcpu_rom1_addr),
+	.q_b(mcpu_rom1_q)
 );
 
 
@@ -359,11 +366,14 @@ dualport_2clk_ram #(.FALLING_A(1),.ADDR_WIDTH(14),.DATA_WIDTH(8)) mcpu_rom1(
 //);
 
 dualport_2clk_ram #(.FALLING_A(1),.ADDR_WIDTH(14),.DATA_WIDTH(8)) mcpu_rom2(
-	.clock_a(clk_sys),
-	.address_a(mcpu_rom2_addr),
-	.data_a(mcpu_rom_data ),
-	.q_a(mcpu_rom2_q),
-	.wren_a(mcpu_rom2_wren_a)
+	.clock_a(dn_clk),
+	.wren_a(mcpu_rom2_wren_a),
+	.address_a(ioctl_addr[13:0]),
+	.data_a(mcpu_rom_data),
+	
+	.clock_b(clk_sys),
+	.address_b(mcpu_rom2_addr),
+	.q_b(mcpu_rom2_q)
 );
 
 //dpram #(14,8) mcpu_rom3(
@@ -376,11 +386,14 @@ dualport_2clk_ram #(.FALLING_A(1),.ADDR_WIDTH(14),.DATA_WIDTH(8)) mcpu_rom2(
 //);
 
 dualport_2clk_ram #(.FALLING_A(1),.ADDR_WIDTH(14),.DATA_WIDTH(8)) mcpu_rom3(
-	.clock_a(clk_sys),
-	.address_a(mcpu_rom3_addr),
+	.clock_a(dn_clk),
+	.wren_a(mcpu_rom3_wren_a),
+	.address_a(ioctl_addr[13:0]),
 	.data_a(mcpu_rom_data ),
-	.q_a(mcpu_rom3_q),
-	.wren_a(mcpu_rom3_wren_a)
+	
+	.clock_b(clk_sys),
+	.address_b(mcpu_rom3_addr),
+	.q_b(mcpu_rom3_q)
 );
 
 
@@ -417,7 +430,7 @@ dualport_2clk_ram #(.ADDR_WIDTH(11),.DATA_WIDTH(8)) sram(
 	.address_a(avs),
 	.data_a(mcpu_dout),
 	.q_a(sram_q),
-	.wren_a(~srwr_n )
+	.wren_a(~srwr_n)
 );
 
 // vram fg
@@ -436,7 +449,7 @@ dualport_2clk_ram #(.ADDR_WIDTH(11),.DATA_WIDTH(8)) rram(
 	.address_a(avr),
 	.data_a(mcpu_dout),
 	.q_a(rram_q),
-	.wren_a(~rrwr_n )
+	.wren_a(~rrwr_n)
 );
 
 /******** MCPU I/O & DATA BUS ********/
@@ -687,11 +700,14 @@ wire [3:0] col = sel_n ? scol : rcol;
 //);
 
 dualport_2clk_ram #(.FALLING_A(1),.ADDR_WIDTH(8),.DATA_WIDTH(4)) fg_color_lut(
-	.clock_a(clk_sys),
-	.address_a(fg_color_addr),
+	.clock_a(dn_clk),
+	.wren_a(fg_color_wren),
+	.address_a(ioctl_addr[7:0]),
 	.data_a(col_data[3:0]),
-	.q_a(rcol),
-	.wren_a(fg_color_wren )
+	
+	.clock_b(clk_sys),
+	.address_b(fg_color_addr),
+	.q_b(rcol)
 );
 
 //dpram #(8,4) bg_color_lut(
@@ -704,11 +720,14 @@ dualport_2clk_ram #(.FALLING_A(1),.ADDR_WIDTH(8),.DATA_WIDTH(4)) fg_color_lut(
 //);
 
 dualport_2clk_ram #(.FALLING_A(1),.ADDR_WIDTH(8),.DATA_WIDTH(4)) bg_color_lut(
-	.clock_a(clk_sys),
-	.address_a(bg_color_addr),
+	.clock_a(dn_clk),
+	.wren_a(bg_color_wren),
+	.address_a(ioctl_addr[7:0]),
 	.data_a(col_data[3:0]),
-	.q_a(scol),
-	.wren_a(fg_color_wren )
+	
+	.clock_b(clk_sys),
+	.address_b(bg_color_addr),
+	.q_b(scol)
 );
 
 // back is a palette switch
@@ -724,11 +743,14 @@ wire back = u8H[3];
 //);
 
 dualport_2clk_ram #(.FALLING_A(1),.ADDR_WIDTH(5),.DATA_WIDTH(8)) palette(
-	.clock_a(clk_sys),
-	.address_a(pal_addr),
+	.clock_a(dn_clk),
+	.wren_a(pal_wren),
+	.address_a(ioctl_addr[4:0]),
 	.data_a(col_data),
-	.q_a(pal_data),
-	.wren_a(pal_wren)
+	
+	.clock_b(clk_sys),
+	.address_b(pal_addr),
+	.q_b(pal_data)
 );
 
 /******** GFX ROMs ********/
@@ -761,12 +783,15 @@ wire [7:0] srom_dout_c = ~sca[13] ? gfx_rom7_q : gfx_rom8_q;
 //  .wren_a    ( gfx_rom1_wren_a )
 //);
 
-dualport_2clk_ram #(.FALLING_A(13),.ADDR_WIDTH(13),.DATA_WIDTH(4)) gfx_rom1(
-	.clock_a(clk_sys),
-	.address_a(gfx_rom1_addr),
+dualport_2clk_ram #(.FALLING_A(1),.ADDR_WIDTH(13),.DATA_WIDTH(8)) gfx_rom1(
+	.clock_a(dn_clk),
+	.wren_a(gfx_rom1_wren_a),
+	.address_a(ioctl_addr[12:0]),
 	.data_a(gfx_rom_data),
-	.q_a(gfx_rom1_q),
-	.wren_a(gfx_rom1_wren_a)
+	
+	.clock_b(clk_sys),
+	.address_b(gfx_rom1_addr),
+	.q_b(gfx_rom1_q )
 );
 
 //dpram #(13,8) gfx_rom2(
@@ -778,12 +803,15 @@ dualport_2clk_ram #(.FALLING_A(13),.ADDR_WIDTH(13),.DATA_WIDTH(4)) gfx_rom1(
 //  .wren_a    ( gfx_rom2_wren_a )
 //);
 
-dualport_2clk_ram #(.FALLING_A(1),.ADDR_WIDTH(13),.DATA_WIDTH(4)) gfx_rom2(
-	.clock_a(clk_sys),
-	.address_a(gfx_rom2_addr),
+dualport_2clk_ram #(.FALLING_A(1),.ADDR_WIDTH(13),.DATA_WIDTH(8)) gfx_rom2(
+	.clock_a(dn_clk),
+	.wren_a(gfx_rom2_wren_a),
+	.address_a(ioctl_addr[12:0]),
 	.data_a(gfx_rom_data),
-	.q_a(gfx_rom2_q),
-	.wren_a(gfx_rom2_wren_a)
+	
+	.clock_b(clk_sys),
+	.address_b(gfx_rom2_addr),
+	.q_b(gfx_rom2_q )
 );
 
 // bg
@@ -797,12 +825,15 @@ dualport_2clk_ram #(.FALLING_A(1),.ADDR_WIDTH(13),.DATA_WIDTH(4)) gfx_rom2(
 //  .wren_a    ( gfx_rom3_wren_a )
 //);
 
-dualport_2clk_ram #(.FALLING_A(1),.ADDR_WIDTH(13),.DATA_WIDTH(4)) gfx_rom3(
-	.clock_a(clk_sys),
-	.address_a(gfx_rom3_addr),
+dualport_2clk_ram #(.FALLING_A(1),.ADDR_WIDTH(13),.DATA_WIDTH(8)) gfx_rom3(
+	.clock_a(dn_clk),
+	.wren_a(gfx_rom3_wren_a),
+	.address_a(ioctl_addr[12:0]),
 	.data_a(gfx_rom_data),
-	.q_a(gfx_rom3_q),
-	.wren_a(gfx_rom3_wren_a)
+	
+	.clock_b(clk_sys),
+	.address_b(gfx_rom3_addr),
+	.q_b(gfx_rom3_q )
 );
 
 //dpram #(13,8) gfx_rom4(
@@ -815,11 +846,14 @@ dualport_2clk_ram #(.FALLING_A(1),.ADDR_WIDTH(13),.DATA_WIDTH(4)) gfx_rom3(
 //);
 
 dualport_2clk_ram #(.FALLING_A(1),.ADDR_WIDTH(13),.DATA_WIDTH(8)) gfx_rom4(
-	.clock_a(clk_sys),
-	.address_a(gfx_rom4_addr),
+	.clock_a(dn_clk),
+	.wren_a(gfx_rom4_wren_a),
+	.address_a(ioctl_addr[12:0]),
 	.data_a(gfx_rom_data),
-	.q_a(gfx_rom4_q),
-	.wren_a(gfx_rom4_wren_a)
+	
+	.clock_b(clk_sys),
+	.address_b(gfx_rom4_addr),
+	.q_b(gfx_rom4_q )
 );
 
 //dpram #(13,8) gfx_rom5(
@@ -832,11 +866,14 @@ dualport_2clk_ram #(.FALLING_A(1),.ADDR_WIDTH(13),.DATA_WIDTH(8)) gfx_rom4(
 //);
 
 dualport_2clk_ram #(.FALLING_A(1),.ADDR_WIDTH(13),.DATA_WIDTH(8)) gfx_rom5(
-	.clock_a(clk_sys),
-	.address_a(gfx_rom5_addr),
+	.clock_a(dn_clk),
+	.wren_a(gfx_rom5_wren_a),
+	.address_a(ioctl_addr[12:0]),
 	.data_a(gfx_rom_data),
-	.q_a(gfx_rom5_q),
-	.wren_a(gfx_rom5_wren_a)
+	
+	.clock_b(clk_sys),
+	.address_b(gfx_rom5_addr),
+	.q_b(gfx_rom5_q )
 );
 
 //dpram #(13,8) gfx_rom6(
@@ -849,11 +886,14 @@ dualport_2clk_ram #(.FALLING_A(1),.ADDR_WIDTH(13),.DATA_WIDTH(8)) gfx_rom5(
 //);
 
 dualport_2clk_ram #(.FALLING_A(1),.ADDR_WIDTH(13),.DATA_WIDTH(8)) gfx_rom6(
-	.clock_a(clk_sys),
-	.address_a(gfx_rom6_addr),
+	.clock_a(dn_clk),
+	.wren_a(gfx_rom6_wren_a),
+	.address_a(ioctl_addr[12:0]),
 	.data_a(gfx_rom_data),
-	.q_a(gfx_rom6_q),
-	.wren_a(gfx_rom6_wren_a)
+	
+	.clock_b(clk_sys),
+	.address_b(gfx_rom6_addr),
+	.q_b(gfx_rom6_q )
 );
 
 //dpram #(13,8) gfx_rom7(
@@ -866,11 +906,14 @@ dualport_2clk_ram #(.FALLING_A(1),.ADDR_WIDTH(13),.DATA_WIDTH(8)) gfx_rom6(
 //);
 
 dualport_2clk_ram #(.FALLING_A(1),.ADDR_WIDTH(13),.DATA_WIDTH(8)) gfx_rom7(
-	.clock_a(clk_sys),
-	.address_a(gfx_rom7_addr),
+	.clock_a(dn_clk),
+	.wren_a(gfx_rom7_wren_a),
+	.address_a(ioctl_addr[12:0]),
 	.data_a(gfx_rom_data),
-	.q_a(gfx_rom7_q),
-	.wren_a(gfx_rom7_wren_a)
+	
+	.clock_b(clk_sys),
+	.address_b(gfx_rom7_addr),
+	.q_b(gfx_rom7_q )
 );
 
 //dpram #(13,8) gfx_rom8(
@@ -883,11 +926,14 @@ dualport_2clk_ram #(.FALLING_A(1),.ADDR_WIDTH(13),.DATA_WIDTH(8)) gfx_rom7(
 //);
 
 dualport_2clk_ram #(.FALLING_A(1),.ADDR_WIDTH(13),.DATA_WIDTH(8)) gfx_rom8(
-	.clock_a(clk_sys),
-	.address_a(gfx_rom8_addr),
+	.clock_a(dn_clk),
+	.wren_a(gfx_rom8_wren_a),
+	.address_a(ioctl_addr[12:0]),
 	.data_a(gfx_rom_data),
-	.q_a(gfx_rom8_q),
-	.wren_a(gfx_rom8_wren_a)
+	
+	.clock_b(clk_sys),
+	.address_b(gfx_rom8_addr),
+	.q_b(gfx_rom8_q )
 );
 
 
