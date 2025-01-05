@@ -31,6 +31,7 @@ module core(
 
 /******** LOAD ROMs ********/
 
+wire [15:0] mcpu_addr;
 wire [7:0]  mcpu_rom_data     = ioctl_dout[7:0];
 wire [13:0] mcpu_rom0_addr    = ioctl_download ? ioctl_addr : mcpu_addr[13:0];
 wire        mcpu_rom0_wren_a  = ioctl_download && ioctl_addr < 27'h4000 ? ioctl_wr : 1'b0;
@@ -38,16 +39,136 @@ wire [13:0] mcpu_rom1_addr    = ioctl_download ? ioctl_addr : mcpu_addr[13:0];
 wire        mcpu_rom1_wren_a  = ioctl_download && ioctl_addr < 27'h8000 ? ioctl_wr : 1'b0;
 wire [13:0] mcpu_rom2_addr    = ioctl_download ? ioctl_addr : mcpu_addr[13:0];
 wire        mcpu_rom2_wren_a  = ioctl_download && ioctl_addr < 27'hc000 ? ioctl_wr : 1'b0;
-wire [13:0] mcpu_rom3_addr    = ioctl_download ? ioctl_addr : mcpu_addr[13:0];
-wire        mcpu_rom3_wren_a  = ioctl_download && ioctl_addr < 27'hf000 ? ioctl_wr : 1'b0;
+wire [12:0] mcpu_rom3_addr    = ioctl_download ? ioctl_addr : mcpu_addr[12:0];
+wire        mcpu_rom3_wren_a  = ioctl_download && ioctl_addr < 27'he000 ? ioctl_wr : 1'b0;
+//wire [13:0] mcpu_rom3_addr    = ioctl_download ? ioctl_addr : mcpu_addr[13:0];
+//wire        mcpu_rom3_wren_a  = ioctl_download && ioctl_addr < 27'hf000 ? ioctl_wr : 1'b0;
+
+
+/******** BG/FG color palette ********/
+
+reg [3:0] r4a;
+reg [4:0] r4k;
+
+reg sinv;
+reg rinv;
+reg psld_n;
+reg prld_n;
+
+/******** MCPU MEMORIES ********/
+
+wire [7:0] mcpu_rom0_q;
+wire [7:0] mcpu_rom1_q;
+wire [7:0] mcpu_rom2_q;
+wire [7:0] mcpu_rom3_q;
+wire [7:0] mcpu_wram_q;
+wire [7:0] sram_q;
+wire [7:0] rram_q;
+
+// shift registers
+reg [7:0] sra, srb, src;
+reg [3:0] rra, rrb;
+
+// extract bits from ROM data
+wire [2:0] sex = sinv ? { sra[7], srb[7], src[7] } : { sra[0], srb[0], src[0] };
+wire [1:0] rex = rinv ? { rra[3], rrb[3] } : { rra[0], rrb[0] };
+
+wire [7:0] rc_addr = { 1'b0, r4k, rex };
+wire [7:0] sc_addr = { 1'b0, r4a, sex };
+
+wire [3:0] scol;
+wire [3:0] rcol;
+wire [7:0] pal_data;
+
+reg [7:0] u2J;
+reg [7:0] u8H;
+
+/******** VIDEO ********/
+
+wire [8:0] hcount;
+wire [8:0] vcount;
+wire u1D_co;
+wire u1E_co;
+wire u1G_co;
+wire u1H_co;
+
+wire u2I_co;
+wire [7:0] sh;
+
+/******** PAL 315-5074 ********/
+
+wire rld_n      = ~(&sh[1:0] & hcount[8]);
+wire rch_set_n  = ~(sh[0] & ~sh[1] & sh[2] & hcount[8]);
+wire rcol_set_n = ~(sh[0] & sh[1] & ~sh[2] & hcount[8]);
+wire rad_sel_n  = hcount[8] & ~vb;
+wire sld_n      = ~(&hcount[2:0] & hcount[8]);
+wire sch_set_n  = ~(hcount[0] & ~hcount[1] & ~hcount[2] & hcount[8]);
+wire scol_set_n = ~(hcount[0] & hcount[1] & ~hcount[2] & hcount[8]);
+wire sad_sel_n  = ~hcount[2] & ~vb;
+
+// priority & transparency
+wire rex_n = ~|rcol;
+wire sex_n = ~|scol;
+wire sel_n = (rex_n | ~sex_n | u8H[0]) & (rex_n | u8H[1]);
+
+// back is a palette switch
+// the only difference between the two palettes is color 7 (2F/40)
+wire back = u8H[3];
+wire [3:0] col = sel_n ? scol : rcol;
 
 wire [7:0]  col_data      = ioctl_dout;
-wire [7:0]  fg_color_addr = ioctl_download ? ioctl_addr - 27'h20020 : rc_addr;
-wire        fg_color_wren = ioctl_download && ioctl_addr >= 27'h20020 && ioctl_addr < 27'h20120 ? ioctl_wr : 1'b0;
-wire [7:0]  bg_color_addr = ioctl_download ? ioctl_addr - 27'h20120 : sc_addr;
-wire        bg_color_wren = ioctl_download && ioctl_addr >= 27'h20120 && ioctl_addr < 27'h20220 ? ioctl_wr : 1'b0;
-wire [4:0]  pal_addr      = ioctl_download ? ioctl_addr - 27'h20000 : { back, col };
-wire        pal_wren      = ioctl_download && ioctl_addr >= 27'h20000 && ioctl_addr < 27'h20020 ? ioctl_wr : 1'b0;
+
+/*
+wire [7:0]  fg_color_addr = ioctl_download ? ioctl_addr - 27'h20100 : rc_addr;
+wire        fg_color_wren = ioctl_download && ioctl_addr >= 27'h20100 && ioctl_addr < 27'h20200 ? ioctl_wr : 1'b0;
+wire [7:0]  bg_color_addr = ioctl_download ? ioctl_addr - 27'h20200 : sc_addr;
+wire        bg_color_wren = ioctl_download && ioctl_addr >= 27'h20200 && ioctl_addr < 27'h20300 ? ioctl_wr : 1'b0;
+*/
+
+// Palette was padded to 256 bytes to make this work and subsequent LUTs moved to the nearest 0x100th
+wire [7:0]  pal_addr      = ioctl_download ? ioctl_addr - 27'h20000 : { back, col };
+wire        pal_wren      = ioctl_download && ioctl_addr >= 27'h20000 && ioctl_addr < 27'h20100 ? ioctl_wr : 1'b0;
+wire [7:0]  fg_color_addr = ioctl_download ? ioctl_addr - 27'h20100: rc_addr;
+wire        fg_color_wren = ioctl_download && ioctl_addr >= 27'h20100 && ioctl_addr < 27'h20200 ? ioctl_wr : 1'b0;
+wire [7:0]  bg_color_addr = ioctl_download ? ioctl_addr - 27'h20200 : sc_addr;
+wire        bg_color_wren = ioctl_download && ioctl_addr >= 27'h20200 && ioctl_addr < 27'h20300 ? ioctl_wr : 1'b0;
+
+/******** GFX ROMs ********/
+
+reg [7:0] r3l;
+reg [7:0] r2l;
+reg [7:0] r4l;
+reg [7:0] r3b;
+reg [7:0] r3c;
+
+// flip
+wire bflip = u8H[5];
+wire [7:0] xv  = vcount[7:0] ^ {8{bflip}};
+wire [7:3] xh  = hcount[7:3] ^ {5{bflip}};
+
+// tile flip code
+wire shinv = r3b[3] ^ bflip;
+wire rhinv = r4l[2] ^ bflip;
+
+wire [7:2] xsh = sh[7:2]     ^ {{5{bflip}}, rhinv};
+
+wire [13:0] rca = { r4l[1:0], r2l, xsh[2], xv[2:0] };
+wire [13:0] sca = { r3b[2:0], r3c,         xv[2:0] };
+
+wire [7:0]  gfx_rom1_q;
+wire [7:0]  gfx_rom2_q;
+wire [7:0]  gfx_rom3_q;
+wire [7:0]  gfx_rom4_q;
+wire [7:0]  gfx_rom5_q;
+wire [7:0]  gfx_rom6_q;
+wire [7:0]  gfx_rom7_q;
+wire [7:0]  gfx_rom8_q;
+
+wire [7:0] rrom_dout   = ~rca[13] ? gfx_rom1_q : gfx_rom2_q;
+wire [7:0] srom_dout_a = ~sca[13] ? gfx_rom3_q : gfx_rom4_q;
+wire [7:0] srom_dout_b = ~sca[13] ? gfx_rom5_q : gfx_rom6_q;
+wire [7:0] srom_dout_c = ~sca[13] ? gfx_rom7_q : gfx_rom8_q;
+
 
 wire [7:0]  gfx_rom_data     = ioctl_dout;
 wire [12:0] gfx_rom1_addr    = ioctl_download ? ioctl_addr - 27'h10000 : rca[12:0];
@@ -67,15 +188,6 @@ wire        gfx_rom7_wren_a  = ioctl_download && ioctl_addr >= 27'h1c000 && ioct
 wire [12:0] gfx_rom8_addr    = ioctl_download ? ioctl_addr - 27'h1e000 : sca[12:0];
 wire        gfx_rom8_wren_a  = ioctl_download && ioctl_addr >= 27'h1e000 && ioctl_addr < 27'h20000 ? ioctl_wr : 1'b0;
 
-/******** RGB ********/
-
-reg [7:0] color;
-always @(posedge clk_sys)
-  if (clk_en_514) color <= u8H[2] ? pal_data : 8'd0;
-
-assign ce_pix = clk_en_514;
-assign { blue, green, red } = color;
-
 /******** CLOCKS ********/
 
 // 36/14         =2.5714
@@ -85,17 +197,14 @@ wire clk_en_257, clk_en_514;
 clk_en #(13)  mcpu_clk_en(clk_sys, clk_en_257);
 clk_en #(6) pxl_clk_en(clk_sys, clk_en_514);
 
+reg [7:0] color;
+always @(posedge clk_sys)
+  if (clk_en_514) color <= u8H[2] ? pal_data : 8'd0;
 
-/******** PAL 315-5074 ********/
+/******** RGB ********/
 
-wire rld_n      = ~(&sh[1:0] & hcount[8]);
-wire rch_set_n  = ~(sh[0] & ~sh[1] & sh[2] & hcount[8]);
-wire rcol_set_n = ~(sh[0] & sh[1] & ~sh[2] & hcount[8]);
-wire rad_sel_n  = hcount[8] & ~vb;
-wire sld_n      = ~(&hcount[2:0] & hcount[8]);
-wire sch_set_n  = ~(hcount[0] & ~hcount[1] & ~hcount[2] & hcount[8]);
-wire scol_set_n = ~(hcount[0] & hcount[1] & ~hcount[2] & hcount[8]);
-wire sad_sel_n  = ~hcount[2] & ~vb;
+assign ce_pix = clk_en_514;
+assign { blue, green, red } = color;
 
 /******** PAL 315-5075 ********/
 
@@ -112,6 +221,19 @@ always @(posedge clk_sys) begin
     cpusel_n <= hcount[5] & hs;
   end
 end
+
+/******** MCPU MEMORY CS ********/
+
+wire [3:0] u7A_Y1;
+wire [3:0] u7A_Y2;
+wire [3:0] u7B_Y1;
+wire [3:0] u7B_Y2;
+
+wire wram_cs_n = u7A_Y2[0]; // wram $e000-$e7ff
+wire rram_cs_n = u7A_Y2[2]; // rram $f000-$f7ff
+wire sram_cs_n = u7A_Y2[3]; // sram $f800-$ffff
+
+wire        mcpu_wr_n;
 
 wire srwr_n = ~((vb & ~sram_cs_n & ~mcpu_wr_n)
   | (~sram_cs_n & ~mcpu_wr_n & rf16));
@@ -130,15 +252,6 @@ always @(posedge clk_en_514) begin
     | (~sram_cs_n & rf15);
 end
 
-
-/******** VIDEO ********/
-
-wire [8:0] hcount;
-wire [8:0] vcount;
-wire u1D_co;
-wire u1E_co;
-wire u1G_co;
-wire u1H_co;
 
 reg h0;
 always @(posedge clk_en_514)
@@ -216,16 +329,20 @@ x74161 u1E(
   .co   ( u1E_co      )
 );
 
+// /RDY are open-collector outputs on original schematic
+
+wire rdy1;
+wire rdy2;
+wire rdy3;
+wire rdy_n = rdy1 & rdy2 & rdy3;
 
 /******** MCPU ********/
 
 wire wait_n = o13 & rdy_n;
 
 reg   [7:0] mcpu_din;
-wire [15:0] mcpu_addr;
 wire  [7:0] mcpu_dout;
 wire        mcpu_rd_n;
-wire        mcpu_wr_n;
 wire        mcpu_m1_n;
 wire        mcpu_mreq_n;
 wire        mcpu_iorq_n;
@@ -265,13 +382,6 @@ tv80s mcpu(
   .dout    ( mcpu_dout   )
 );
 
-/******** MCPU MEMORY CS ********/
-
-wire [3:0] u7A_Y1;
-wire [3:0] u7A_Y2;
-wire [3:0] u7B_Y1;
-wire [3:0] u7B_Y2;
-
 x74139 u7A(
   .E1 ( u7B_Y2[3]               ),
   .A1 ( { mcpu_addr[13], 1'b0 } ),
@@ -295,19 +405,6 @@ wire mcpu_rom_cs_n_1 = u7B_Y2[1]; // $4000-$7fff
 wire mcpu_rom_cs_n_2 = u7B_Y2[2]; // $8000-$bfff
 wire mcpu_rom_cs_n_3 = u7A_Y1[0]; // $c000-$ffff
 
-wire wram_cs_n = u7A_Y2[0]; // wram $e000-$e7ff
-wire rram_cs_n = u7A_Y2[2]; // rram $f000-$f7ff
-wire sram_cs_n = u7A_Y2[3]; // sram $f800-$ffff
-
-/******** MCPU MEMORIES ********/
-
-wire [7:0] mcpu_rom0_q;
-wire [7:0] mcpu_rom1_q;
-wire [7:0] mcpu_rom2_q;
-wire [7:0] mcpu_rom3_q;
-wire [7:0] mcpu_wram_q;
-wire [7:0] sram_q;
-wire [7:0] rram_q;
 
 // 3E 3F 3H 3I 3J muxes for RRAM/SRAM address, (r|s)ad_sel_n is active (low) on blank
 wire [10:0] avr = ~rad_sel_n ? mcpu_addr[10:0] : { sh[1], xv[7:3], xsh[7:3] };
@@ -332,8 +429,26 @@ dualport_2clk_ram #(.FALLING_A(1),.ADDR_WIDTH(14),.DATA_WIDTH(8)) mcpu_rom0(
 	.clock_b(clk_sys),
 	.address_b(mcpu_rom0_addr),
 	.q_b(mcpu_rom0_q)
-	
 );
+
+/*
+dualport_2clk_ram 
+#(  .FALLING_A(1),
+    .ADDR_WIDTH(14),
+    .DATA_WIDTH(8),
+    .ROM_PRELOAD(1),
+    .ROM_FILE("../../CORE/Arcade-BankPanic_MiSTer/epr-6175.7e.hex"),
+    .ROM_FILE_HEX(1)
+) mcpu_rom0 (
+	.clock_a(dn_clk),
+	.wren_a(mcpu_rom0_wren_a),
+	.address_a(ioctl_addr[13:0]),
+	.data_a(mcpu_rom_data),
+	
+	.clock_b(clk_sys),
+	.address_b(mcpu_rom0_addr),
+	.q_b(mcpu_rom0_q)
+);*/
 
 //dpram #(14,8) mcpu_rom1(
 //  .clock     ( clk_sys          ),
@@ -343,6 +458,7 @@ dualport_2clk_ram #(.FALLING_A(1),.ADDR_WIDTH(14),.DATA_WIDTH(8)) mcpu_rom0(
 //  .rden_a    ( 1'b1             ),
 //  .wren_a    ( mcpu_rom1_wren_a )
 //);
+
 
 dualport_2clk_ram #(.FALLING_A(1),.ADDR_WIDTH(14),.DATA_WIDTH(8)) mcpu_rom1(
 	.clock_a(dn_clk),
@@ -355,6 +471,25 @@ dualport_2clk_ram #(.FALLING_A(1),.ADDR_WIDTH(14),.DATA_WIDTH(8)) mcpu_rom1(
 	.q_b(mcpu_rom1_q)
 );
 
+/*
+dualport_2clk_ram 
+#(  .FALLING_A(1),
+    .ADDR_WIDTH(14),
+    .DATA_WIDTH(8),
+    .ROM_PRELOAD(1),
+    .ROM_FILE("../../CORE/Arcade-BankPanic_MiSTer/epr-6174.7f.hex"),
+    .ROM_FILE_HEX(1)
+) mcpu_rom1 (
+	.clock_a(dn_clk),
+	.wren_a(mcpu_rom1_wren_a),
+	.address_a(ioctl_addr[13:0]),
+	.data_a(mcpu_rom_data),
+	
+	.clock_b(clk_sys),
+	.address_b(mcpu_rom1_addr),
+	.q_b(mcpu_rom1_q)
+);*/
+
 
 //dpram #(14,8) mcpu_rom2(
 //  .clock     ( clk_sys          ),
@@ -364,6 +499,7 @@ dualport_2clk_ram #(.FALLING_A(1),.ADDR_WIDTH(14),.DATA_WIDTH(8)) mcpu_rom1(
 //  .rden_a    ( 1'b1             ),
 //  .wren_a    ( mcpu_rom2_wren_a )
 //);
+
 
 dualport_2clk_ram #(.FALLING_A(1),.ADDR_WIDTH(14),.DATA_WIDTH(8)) mcpu_rom2(
 	.clock_a(dn_clk),
@@ -376,6 +512,26 @@ dualport_2clk_ram #(.FALLING_A(1),.ADDR_WIDTH(14),.DATA_WIDTH(8)) mcpu_rom2(
 	.q_b(mcpu_rom2_q)
 );
 
+/*
+dualport_2clk_ram 
+#(  .FALLING_A(1),
+    .ADDR_WIDTH(14),
+    .DATA_WIDTH(8),
+    .ROM_PRELOAD(1),
+    .ROM_FILE("../../CORE/Arcade-BankPanic_MiSTer/epr-6173.7h.hex"),
+    .ROM_FILE_HEX(1)
+) mcpu_rom2 (
+	.clock_a(dn_clk),
+	.wren_a(mcpu_rom2_wren_a),
+	.address_a(ioctl_addr[13:0]),
+	.data_a(mcpu_rom_data),
+	
+	.clock_b(clk_sys),
+	.address_b(mcpu_rom2_addr),
+	.q_b(mcpu_rom2_q)
+);
+*/
+
 //dpram #(14,8) mcpu_rom3(
 //  .clock     ( clk_sys          ),
 //  .address_a ( mcpu_rom3_addr   ),
@@ -385,10 +541,13 @@ dualport_2clk_ram #(.FALLING_A(1),.ADDR_WIDTH(14),.DATA_WIDTH(8)) mcpu_rom2(
  // .wren_a    ( mcpu_rom3_wren_a )
 //);
 
-dualport_2clk_ram #(.FALLING_A(1),.ADDR_WIDTH(14),.DATA_WIDTH(8)) mcpu_rom3(
+
+dualport_2clk_ram #(.FALLING_A(1),.ADDR_WIDTH(13),.DATA_WIDTH(8)) mcpu_rom3(
+//dualport_2clk_ram #(.FALLING_A(1),.ADDR_WIDTH(14),.DATA_WIDTH(8)) mcpu_rom3(
 	.clock_a(dn_clk),
 	.wren_a(mcpu_rom3_wren_a),
-	.address_a(ioctl_addr[13:0]),
+	.address_a(ioctl_addr[12:0]),
+	//.address_a(ioctl_addr[13:0]),
 	.data_a(mcpu_rom_data ),
 	
 	.clock_b(clk_sys),
@@ -396,6 +555,25 @@ dualport_2clk_ram #(.FALLING_A(1),.ADDR_WIDTH(14),.DATA_WIDTH(8)) mcpu_rom3(
 	.q_b(mcpu_rom3_q)
 );
 
+/*
+dualport_2clk_ram 
+#(  .FALLING_A(1),
+    .ADDR_WIDTH(14),
+    .DATA_WIDTH(8),
+    .ROM_PRELOAD(1),
+    .ROM_FILE("../../CORE/Arcade-BankPanic_MiSTer/epr-6176.7d_.hex"),
+    .ROM_FILE_HEX(1)
+) mcpu_rom3 (
+	.clock_a(dn_clk),
+	.wren_a(mcpu_rom3_wren_a),
+	.address_a(ioctl_addr[13:0]),
+	.data_a(mcpu_rom_data),
+	
+	.clock_b(clk_sys),
+	.address_b(mcpu_rom3_addr),
+	.q_b(mcpu_rom3_q)
+);
+*/
 
 //dpram #(11,8) mcpu_wram(
 //  .clock     ( clk_sys                 ),
@@ -406,6 +584,7 @@ dualport_2clk_ram #(.FALLING_A(1),.ADDR_WIDTH(14),.DATA_WIDTH(8)) mcpu_rom3(
 //  .wren_a    ( ~wram_cs_n & ~mcpu_wr_n )
 //);
 
+
 dualport_2clk_ram #(.ADDR_WIDTH(11),.DATA_WIDTH(8)) mcpu_wram(
 	.clock_a(clk_sys),
 	.address_a(mcpu_addr[10:0]),
@@ -413,6 +592,14 @@ dualport_2clk_ram #(.ADDR_WIDTH(11),.DATA_WIDTH(8)) mcpu_wram(
 	.q_a(mcpu_wram_q ),
 	.wren_a(~wram_cs_n & ~mcpu_wr_n)
 );
+
+/*gen_ram #(.aWidth(11),.dWidth(8)) mcpu_wram(
+	.clk(clk_sys),
+	.addr(mcpu_addr[10:0]),
+	.d(mcpu_dout),
+	.q(mcpu_wram_q ),
+	.we(~wram_cs_n & ~mcpu_wr_n)
+);*/
 
 // vram bg
 
@@ -425,6 +612,7 @@ dualport_2clk_ram #(.ADDR_WIDTH(11),.DATA_WIDTH(8)) mcpu_wram(
 //  .wren_a    ( ~srwr_n   )
 //);
 
+
 dualport_2clk_ram #(.ADDR_WIDTH(11),.DATA_WIDTH(8)) sram(
 	.clock_a(clk_sys),
 	.address_a(avs),
@@ -432,6 +620,14 @@ dualport_2clk_ram #(.ADDR_WIDTH(11),.DATA_WIDTH(8)) sram(
 	.q_a(sram_q),
 	.wren_a(~srwr_n)
 );
+
+/*gen_ram #(.aWidth(11),.dWidth(8)) sram(
+	.clk(clk_sys),
+	.addr(avs),
+	.d(mcpu_dout),
+	.q(sram_q),
+	.we(~srwr_n)
+);*/
 
 // vram fg
 
@@ -451,6 +647,14 @@ dualport_2clk_ram #(.ADDR_WIDTH(11),.DATA_WIDTH(8)) rram(
 	.q_a(rram_q),
 	.wren_a(~rrwr_n)
 );
+
+/*gen_ram #(.aWidth(11),.dWidth(8)) rram(
+	.clk(clk_sys),
+	.addr(avr),
+	.d(mcpu_dout),
+	.q(rram_q),
+	.we(~rrwr_n)
+);*/
 
 /******** MCPU I/O & DATA BUS ********/
 
@@ -482,8 +686,6 @@ x74138 u6D(
   .Y   ( u6D_Y          )
 );
 
-reg [7:0] u2J;
-reg [7:0] u8H;
 
 always @(posedge clk_sys) begin
   if (~mcpu_wr_n) begin
@@ -511,8 +713,6 @@ always @(posedge clk_sys)
 
 /******** SCROLL COUNT ********/
 
-wire u2I_co;
-wire [7:0] sh;
 
 reg oldh8, load;
 always @(posedge clk_sys) begin
@@ -548,24 +748,11 @@ x74161 u2I(
   .co   ( u2I_co     )
 );
 
-
-// flip
-wire bflip = u8H[5];
-wire [7:0] xv  = vcount[7:0] ^ {8{bflip}};
-wire [7:3] xh  = hcount[7:3] ^ {5{bflip}};
-wire [7:2] xsh = sh[7:2]     ^ {{5{bflip}}, rhinv};
-
 /******** COL/CH registers ********/
 
 // COLors & CHaracters
 // It captures VRAM data to build tile & color addresses
 // timing signals are generated by the PAL 315-5074
-
-reg [7:0] r3l;
-reg [7:0] r2l;
-reg [7:0] r4l;
-reg [7:0] r3b;
-reg [7:0] r3c;
 
 reg prcol_set_n;
 reg prch_set_n;
@@ -601,17 +788,6 @@ end
 // shift & select high or low bits of ROM data
 // translated to verilog to avoid a lot of 74LS194 instances
 
-reg [3:0] r4a;
-reg [4:0] r4k;
-reg sinv;
-reg rinv;
-reg psld_n;
-reg prld_n;
-
-// tile flip code
-wire shinv = r3b[3] ^ bflip;
-wire rhinv = r4l[2] ^ bflip;
-
 // 4K & 4A for stable address/inv signals
 always @(posedge clk_sys) begin
   psld_n <= sld_n;
@@ -632,14 +808,6 @@ wire ss1 = sinv ? ~sld_n : 1'b1;
 wire rs0 = rinv ? 1'b1 : ~rld_n;
 wire rs1 = rinv ? ~rld_n : 1'b1;
 
-// extract bits from ROM data
-wire [2:0] sex = sinv ? { sra[7], srb[7], src[7] } : { sra[0], srb[0], src[0] };
-wire [1:0] rex = rinv ? { rra[3], rrb[3] } : { rra[0], rrb[0] };
-
-
-// shift registers
-reg [7:0] sra, srb, src;
-reg [3:0] rra, rrb;
 always @(posedge clk_sys) begin
   if (clk_en_514) begin
 
@@ -675,21 +843,6 @@ always @(posedge clk_sys) begin
   end
 end
 
-/******** BG/FG color palette ********/
-
-wire [7:0] rc_addr = { 1'b0, r4k, rex };
-wire [7:0] sc_addr = { 1'b0, r4a, sex };
-
-wire [3:0] scol;
-wire [3:0] rcol;
-wire [7:0] pal_data;
-
-// priority & transparency
-wire rex_n = ~|rcol;
-wire sex_n = ~|scol;
-wire sel_n = (rex_n | ~sex_n | u8H[0]) & (rex_n | u8H[1]);
-wire [3:0] col = sel_n ? scol : rcol;
-
 //dpram #(8,4) fg_color_lut(
 //  .clock     ( clk_sys       ),
 //  .address_a ( fg_color_addr ),
@@ -698,6 +851,28 @@ wire [3:0] col = sel_n ? scol : rcol;
 //  .rden_a    ( 1'b1          ),
 //  .wren_a    ( fg_color_wren )
 //);
+
+
+/*
+dualport_2clk_ram 
+#(  .FALLING_A(1),
+    .ADDR_WIDTH(8),
+    .DATA_WIDTH(4),
+    .ROM_PRELOAD(1),
+    .ROM_FILE("../../CORE/Arcade-BankPanic_MiSTer/pr-6178.6f.hex"),
+    .ROM_FILE_HEX(1)
+) fg_color_lut (
+	.clock_a(dn_clk),
+	.wren_a(fg_color_wren),
+	.address_a(ioctl_addr[7:0]),
+	.data_a(col_data[3:0]),
+	
+	.clock_b(clk_sys),
+	.address_b(fg_color_addr),
+	.q_b(rcol)
+);*/
+
+
 
 dualport_2clk_ram #(.FALLING_A(1),.ADDR_WIDTH(8),.DATA_WIDTH(4)) fg_color_lut(
 	.clock_a(dn_clk),
@@ -710,6 +885,7 @@ dualport_2clk_ram #(.FALLING_A(1),.ADDR_WIDTH(8),.DATA_WIDTH(4)) fg_color_lut(
 	.q_b(rcol)
 );
 
+
 //dpram #(8,4) bg_color_lut(
 //  .clock     ( clk_sys       ),
 //  .address_a ( bg_color_addr ),
@@ -718,6 +894,26 @@ dualport_2clk_ram #(.FALLING_A(1),.ADDR_WIDTH(8),.DATA_WIDTH(4)) fg_color_lut(
 //  .rden_a    ( 1'b1          ),
 //  .wren_a    ( bg_color_wren )
 //);
+
+/*
+dualport_2clk_ram 
+#(  .FALLING_A(1),
+    .ADDR_WIDTH(8),
+    .DATA_WIDTH(4),
+    .ROM_PRELOAD(1),
+    .ROM_FILE("../../CORE/Arcade-BankPanic_MiSTer/pr-6179.5a.hex"),
+    .ROM_FILE_HEX(1)
+) bg_color_lut (
+	.clock_a(dn_clk),
+	.wren_a(bg_color_wren),
+	.address_a(ioctl_addr[7:0]),
+	.data_a(col_data[3:0]),
+	
+	.clock_b(clk_sys),
+	.address_b(bg_color_addr),
+	.q_b(scol)
+);*/
+
 
 dualport_2clk_ram #(.FALLING_A(1),.ADDR_WIDTH(8),.DATA_WIDTH(4)) bg_color_lut(
 	.clock_a(dn_clk),
@@ -730,9 +926,8 @@ dualport_2clk_ram #(.FALLING_A(1),.ADDR_WIDTH(8),.DATA_WIDTH(4)) bg_color_lut(
 	.q_b(scol)
 );
 
-// back is a palette switch
-// the only difference between the two palettes is color 7 (2F/40)
-wire back = u8H[3];
+
+
 //dpram #(5,8) palette(
 //  .clock     ( clk_sys  ),
 //  .address_a ( pal_addr ),
@@ -742,7 +937,28 @@ wire back = u8H[3];
 // .wren_a    ( pal_wren )
 //);
 
-dualport_2clk_ram #(.FALLING_A(1),.ADDR_WIDTH(5),.DATA_WIDTH(8)) palette(
+
+
+dualport_2clk_ram #(.FALLING_A(1),.ADDR_WIDTH(8),.DATA_WIDTH(8)) palette(
+	.clock_a(dn_clk),
+	.wren_a(pal_wren),
+	.address_a(ioctl_addr[7:0]),
+	.data_a(col_data),
+	
+	.clock_b(clk_sys),
+	.address_b(pal_addr[4:0]),
+	.q_b(pal_data)
+);
+
+/*
+dualport_2clk_ram 
+#(  .FALLING_A(1),
+    .ADDR_WIDTH(5),
+    .DATA_WIDTH(8),
+    .ROM_PRELOAD(1),
+    .ROM_FILE("../../CORE/Arcade-BankPanic_MiSTer/pr-6177.8a.hex"),
+    .ROM_FILE_HEX(1)
+) palette (
 	.clock_a(dn_clk),
 	.wren_a(pal_wren),
 	.address_a(ioctl_addr[4:0]),
@@ -751,26 +967,7 @@ dualport_2clk_ram #(.FALLING_A(1),.ADDR_WIDTH(5),.DATA_WIDTH(8)) palette(
 	.clock_b(clk_sys),
 	.address_b(pal_addr),
 	.q_b(pal_data)
-);
-
-/******** GFX ROMs ********/
-
-wire [13:0] rca = { r4l[1:0], r2l, xsh[2], xv[2:0] };
-wire [13:0] sca = { r3b[2:0], r3c,         xv[2:0] };
-
-wire [7:0]  gfx_rom1_q;
-wire [7:0]  gfx_rom2_q;
-wire [7:0]  gfx_rom3_q;
-wire [7:0]  gfx_rom4_q;
-wire [7:0]  gfx_rom5_q;
-wire [7:0]  gfx_rom6_q;
-wire [7:0]  gfx_rom7_q;
-wire [7:0]  gfx_rom8_q;
-
-wire [7:0] rrom_dout   = ~rca[13] ? gfx_rom1_q : gfx_rom2_q;
-wire [7:0] srom_dout_a = ~sca[13] ? gfx_rom3_q : gfx_rom4_q;
-wire [7:0] srom_dout_b = ~sca[13] ? gfx_rom5_q : gfx_rom6_q;
-wire [7:0] srom_dout_c = ~sca[13] ? gfx_rom7_q : gfx_rom8_q;
+);*/
 
 // fg
 
@@ -783,6 +980,7 @@ wire [7:0] srom_dout_c = ~sca[13] ? gfx_rom7_q : gfx_rom8_q;
 //  .wren_a    ( gfx_rom1_wren_a )
 //);
 
+
 dualport_2clk_ram #(.FALLING_A(1),.ADDR_WIDTH(13),.DATA_WIDTH(8)) gfx_rom1(
 	.clock_a(dn_clk),
 	.wren_a(gfx_rom1_wren_a),
@@ -791,8 +989,28 @@ dualport_2clk_ram #(.FALLING_A(1),.ADDR_WIDTH(13),.DATA_WIDTH(8)) gfx_rom1(
 	
 	.clock_b(clk_sys),
 	.address_b(gfx_rom1_addr),
-	.q_b(gfx_rom1_q )
+	.q_b(gfx_rom1_q)
 );
+
+/*
+dualport_2clk_ram 
+#(  .FALLING_A(1),
+    .ADDR_WIDTH(13),
+    .DATA_WIDTH(8),
+    .ROM_PRELOAD(1),
+    .ROM_FILE("../../CORE/Arcade-BankPanic_MiSTer/epr-6165.5l.hex"),
+    .ROM_FILE_HEX(1)
+) gfx_rom1 (
+	.clock_a(dn_clk),
+	.wren_a(gfx_rom1_wren_a),
+	.address_a(ioctl_addr[12:0]),
+	.data_a(gfx_rom_data),
+	
+	.clock_b(clk_sys),
+	.address_b(gfx_rom1_addr),
+	.q_b(gfx_rom1_q)
+);
+*/
 
 //dpram #(13,8) gfx_rom2(
 //  .clock     ( clk_sys         ),
@@ -803,6 +1021,7 @@ dualport_2clk_ram #(.FALLING_A(1),.ADDR_WIDTH(13),.DATA_WIDTH(8)) gfx_rom1(
 //  .wren_a    ( gfx_rom2_wren_a )
 //);
 
+
 dualport_2clk_ram #(.FALLING_A(1),.ADDR_WIDTH(13),.DATA_WIDTH(8)) gfx_rom2(
 	.clock_a(dn_clk),
 	.wren_a(gfx_rom2_wren_a),
@@ -811,8 +1030,29 @@ dualport_2clk_ram #(.FALLING_A(1),.ADDR_WIDTH(13),.DATA_WIDTH(8)) gfx_rom2(
 	
 	.clock_b(clk_sys),
 	.address_b(gfx_rom2_addr),
-	.q_b(gfx_rom2_q )
+	.q_b(gfx_rom2_q)
 );
+
+
+/*
+dualport_2clk_ram 
+#(  .FALLING_A(1),
+    .ADDR_WIDTH(13),
+    .DATA_WIDTH(8),
+    .ROM_PRELOAD(1),
+    .ROM_FILE("../../CORE/Arcade-BankPanic_MiSTer/epr-6166.5k.hex"),
+    .ROM_FILE_HEX(1)
+) gfx_rom2 (
+	.clock_a(dn_clk),
+	.wren_a(gfx_rom2_wren_a),
+	.address_a(ioctl_addr[12:0]),
+	.data_a(gfx_rom_data),
+	
+	.clock_b(clk_sys),
+	.address_b(gfx_rom2_addr),
+	.q_b(gfx_rom2_q)
+);
+*/
 
 // bg
 
@@ -825,6 +1065,7 @@ dualport_2clk_ram #(.FALLING_A(1),.ADDR_WIDTH(13),.DATA_WIDTH(8)) gfx_rom2(
 //  .wren_a    ( gfx_rom3_wren_a )
 //);
 
+
 dualport_2clk_ram #(.FALLING_A(1),.ADDR_WIDTH(13),.DATA_WIDTH(8)) gfx_rom3(
 	.clock_a(dn_clk),
 	.wren_a(gfx_rom3_wren_a),
@@ -833,8 +1074,28 @@ dualport_2clk_ram #(.FALLING_A(1),.ADDR_WIDTH(13),.DATA_WIDTH(8)) gfx_rom3(
 	
 	.clock_b(clk_sys),
 	.address_b(gfx_rom3_addr),
-	.q_b(gfx_rom3_q )
+	.q_b(gfx_rom3_q)
 );
+
+/*
+dualport_2clk_ram 
+#(  .FALLING_A(1),
+    .ADDR_WIDTH(13),
+    .DATA_WIDTH(8),
+    .ROM_PRELOAD(1),
+    .ROM_FILE("../../CORE/Arcade-BankPanic_MiSTer/epr-6172.5b.hex"),
+    .ROM_FILE_HEX(1)
+) gfx_rom3 (
+	.clock_a(dn_clk),
+	.wren_a(gfx_rom3_wren_a),
+	.address_a(ioctl_addr[12:0]),
+	.data_a(gfx_rom_data),
+	
+	.clock_b(clk_sys),
+	.address_b(gfx_rom3_addr),
+	.q_b(gfx_rom3_q)
+);
+*/
 
 //dpram #(13,8) gfx_rom4(
 //  .clock     ( clk_sys         ),
@@ -853,8 +1114,28 @@ dualport_2clk_ram #(.FALLING_A(1),.ADDR_WIDTH(13),.DATA_WIDTH(8)) gfx_rom4(
 	
 	.clock_b(clk_sys),
 	.address_b(gfx_rom4_addr),
-	.q_b(gfx_rom4_q )
+	.q_b(gfx_rom4_q)
 );
+
+/*
+dualport_2clk_ram 
+#(  .FALLING_A(1),
+    .ADDR_WIDTH(13),
+    .DATA_WIDTH(8),
+    .ROM_PRELOAD(1),
+    .ROM_FILE("../../CORE/Arcade-BankPanic_MiSTer/epr-6171.5d.hex"),
+    .ROM_FILE_HEX(1)
+) gfx_rom4 (
+	.clock_a(dn_clk),
+	.wren_a(gfx_rom4_wren_a),
+	.address_a(ioctl_addr[12:0]),
+	.data_a(gfx_rom_data),
+	
+	.clock_b(clk_sys),
+	.address_b(gfx_rom4_addr),
+	.q_b(gfx_rom4_q)
+);
+*/
 
 //dpram #(13,8) gfx_rom5(
 //  .clock     ( clk_sys         ),
@@ -873,8 +1154,27 @@ dualport_2clk_ram #(.FALLING_A(1),.ADDR_WIDTH(13),.DATA_WIDTH(8)) gfx_rom5(
 	
 	.clock_b(clk_sys),
 	.address_b(gfx_rom5_addr),
-	.q_b(gfx_rom5_q )
+	.q_b(gfx_rom5_q)
 );
+
+/*
+dualport_2clk_ram 
+#(  .FALLING_A(1),
+    .ADDR_WIDTH(13),
+    .DATA_WIDTH(8),
+    .ROM_PRELOAD(1),
+    .ROM_FILE("../../CORE/Arcade-BankPanic_MiSTer/epr-6170.5e.hex"),
+    .ROM_FILE_HEX(1)
+) gfx_rom5 (
+	.clock_a(dn_clk),
+	.wren_a(gfx_rom5_wren_a),
+	.address_a(ioctl_addr[12:0]),
+	.data_a(gfx_rom_data),
+	
+	.clock_b(clk_sys),
+	.address_b(gfx_rom5_addr),
+	.q_b(gfx_rom5_q)
+);*/
 
 //dpram #(13,8) gfx_rom6(
 //  .clock     ( clk_sys         ),
@@ -893,8 +1193,28 @@ dualport_2clk_ram #(.FALLING_A(1),.ADDR_WIDTH(13),.DATA_WIDTH(8)) gfx_rom6(
 	
 	.clock_b(clk_sys),
 	.address_b(gfx_rom6_addr),
-	.q_b(gfx_rom6_q )
+	.q_b(gfx_rom6_q)
 );
+
+/*
+dualport_2clk_ram 
+#(  .FALLING_A(1),
+    .ADDR_WIDTH(13),
+    .DATA_WIDTH(8),
+    .ROM_PRELOAD(1),
+    .ROM_FILE("../../CORE/Arcade-BankPanic_MiSTer/epr-6169.5f.hex"),
+    .ROM_FILE_HEX(1)
+) gfx_rom6 (
+	.clock_a(dn_clk),
+	.wren_a(gfx_rom6_wren_a),
+	.address_a(ioctl_addr[12:0]),
+	.data_a(gfx_rom_data),
+	
+	.clock_b(clk_sys),
+	.address_b(gfx_rom6_addr),
+	.q_b(gfx_rom6_q)
+);
+*/
 
 //dpram #(13,8) gfx_rom7(
 //  .clock     ( clk_sys         ),
@@ -905,6 +1225,7 @@ dualport_2clk_ram #(.FALLING_A(1),.ADDR_WIDTH(13),.DATA_WIDTH(8)) gfx_rom6(
 //  .wren_a    ( gfx_rom7_wren_a )
 //);
 
+
 dualport_2clk_ram #(.FALLING_A(1),.ADDR_WIDTH(13),.DATA_WIDTH(8)) gfx_rom7(
 	.clock_a(dn_clk),
 	.wren_a(gfx_rom7_wren_a),
@@ -913,8 +1234,27 @@ dualport_2clk_ram #(.FALLING_A(1),.ADDR_WIDTH(13),.DATA_WIDTH(8)) gfx_rom7(
 	
 	.clock_b(clk_sys),
 	.address_b(gfx_rom7_addr),
-	.q_b(gfx_rom7_q )
+	.q_b(gfx_rom7_q)
 );
+
+/*
+dualport_2clk_ram 
+#(  .FALLING_A(1),
+    .ADDR_WIDTH(13),
+    .DATA_WIDTH(8),
+    .ROM_PRELOAD(1),
+    .ROM_FILE("../../CORE/Arcade-BankPanic_MiSTer/epr-6168.5h.hex"),
+    .ROM_FILE_HEX(1)
+) gfx_rom7 (
+	.clock_a(dn_clk),
+	.wren_a(gfx_rom7_wren_a),
+	.address_a(ioctl_addr[12:0]),
+	.data_a(gfx_rom_data),
+	
+	.clock_b(clk_sys),
+	.address_b(gfx_rom7_addr),
+	.q_b(gfx_rom7_q)
+);*/
 
 //dpram #(13,8) gfx_rom8(
 //  .clock     ( clk_sys         ),
@@ -933,18 +1273,30 @@ dualport_2clk_ram #(.FALLING_A(1),.ADDR_WIDTH(13),.DATA_WIDTH(8)) gfx_rom8(
 	
 	.clock_b(clk_sys),
 	.address_b(gfx_rom8_addr),
-	.q_b(gfx_rom8_q )
+	.q_b(gfx_rom8_q)
 );
 
+/*
+dualport_2clk_ram 
+#(  .FALLING_A(1),
+    .ADDR_WIDTH(13),
+    .DATA_WIDTH(8),
+    .ROM_PRELOAD(1),
+    .ROM_FILE("../../CORE/Arcade-BankPanic_MiSTer/epr-6167.5i.hex"),
+    .ROM_FILE_HEX(1)
+) gfx_rom8 (
+	.clock_a(dn_clk),
+	.wren_a(gfx_rom8_wren_a),
+	.address_a(ioctl_addr[12:0]),
+	.data_a(gfx_rom_data),
+	
+	.clock_b(clk_sys),
+	.address_b(gfx_rom8_addr),
+	.q_b(gfx_rom8_q)
+);
+*/
 
 /******** AUDIO ********/
-
-// /RDY are open-collector outputs on original schematic
-
-wire rdy1;
-wire rdy2;
-wire rdy3;
-wire rdy_n = rdy1 & rdy2 & rdy3;
 
 wire [13:0] mix_audio1;
 wire [13:0] mix_audio2;
