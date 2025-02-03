@@ -31,19 +31,17 @@ module core(
 
 /******** LOAD ROMs ********/
 
+
 wire [15:0] mcpu_addr;
 wire [7:0]  mcpu_rom_data     = ioctl_dout[7:0];
-wire [13:0] mcpu_rom0_addr    = ioctl_download ? ioctl_addr : mcpu_addr[13:0];
 wire        mcpu_rom0_wren_a  = ioctl_download && ioctl_addr < 27'h4000 ? ioctl_wr : 1'b0;
-wire [13:0] mcpu_rom1_addr    = ioctl_download ? ioctl_addr : mcpu_addr[13:0];
+wire [13:0] mcpu_rom0_addr = mcpu_addr[13:0];
 wire        mcpu_rom1_wren_a  = ioctl_download && ioctl_addr < 27'h8000 ? ioctl_wr : 1'b0;
-wire [13:0] mcpu_rom2_addr    = ioctl_download ? ioctl_addr : mcpu_addr[13:0];
+wire [13:0] mcpu_rom1_addr = mcpu_addr[13:0];
 wire        mcpu_rom2_wren_a  = ioctl_download && ioctl_addr < 27'hc000 ? ioctl_wr : 1'b0;
-wire [12:0] mcpu_rom3_addr    = ioctl_download ? ioctl_addr : mcpu_addr[12:0];
-wire        mcpu_rom3_wren_a  = ioctl_download && ioctl_addr < 27'he000 ? ioctl_wr : 1'b0;
-//wire [13:0] mcpu_rom3_addr    = ioctl_download ? ioctl_addr : mcpu_addr[13:0];
-//wire        mcpu_rom3_wren_a  = ioctl_download && ioctl_addr < 27'hf000 ? ioctl_wr : 1'b0;
-
+wire [13:0] mcpu_rom2_addr = mcpu_addr[13:0];
+wire        mcpu_rom3_wren_a  = ioctl_download && ioctl_addr < 27'hf000 ? ioctl_wr : 1'b0;
+wire [13:0] mcpu_rom3_addr = mcpu_addr[13:0];
 
 /******** BG/FG color palette ********/
 
@@ -116,22 +114,15 @@ wire sel_n = (rex_n | ~sex_n | u8H[0]) & (rex_n | u8H[1]);
 wire back = u8H[3];
 wire [3:0] col = sel_n ? scol : rcol;
 
-wire [7:0]  col_data      = ioctl_dout;
 
-/*
-wire [7:0]  fg_color_addr = ioctl_download ? ioctl_addr - 27'h20100 : rc_addr;
-wire        fg_color_wren = ioctl_download && ioctl_addr >= 27'h20100 && ioctl_addr < 27'h20200 ? ioctl_wr : 1'b0;
-wire [7:0]  bg_color_addr = ioctl_download ? ioctl_addr - 27'h20200 : sc_addr;
-wire        bg_color_wren = ioctl_download && ioctl_addr >= 27'h20200 && ioctl_addr < 27'h20300 ? ioctl_wr : 1'b0;
-*/
+wire [7:0] col_data         = ioctl_dout;
+wire       pal_wren         = ioctl_download && ioctl_addr >= 27'h20000 && ioctl_addr < 27'h20100 ? ioctl_wr : 1'b0;
+wire [7:0] pal_addr         = { 1'b0, 4'b0 ,back, col }; 
+wire       fg_color_wren    = ioctl_download && ioctl_addr >= 27'h20100 && ioctl_addr < 27'h20200 ? ioctl_wr : 1'b0;
+wire [7:0] fg_color_addr    =  rc_addr;
+wire       bg_color_wren    = ioctl_download && ioctl_addr >= 27'h20200 && ioctl_addr < 27'h20300 ? ioctl_wr : 1'b0;
+wire [7:0] bg_color_addr    = sc_addr;
 
-// Palette was padded to 256 bytes to make this work and subsequent LUTs moved to the nearest 0x100th
-wire [7:0]  pal_addr      = ioctl_download ? ioctl_addr - 27'h20000 : { back, col };
-wire        pal_wren      = ioctl_download && ioctl_addr >= 27'h20000 && ioctl_addr < 27'h20100 ? ioctl_wr : 1'b0;
-wire [7:0]  fg_color_addr = ioctl_download ? ioctl_addr - 27'h20100: rc_addr;
-wire        fg_color_wren = ioctl_download && ioctl_addr >= 27'h20100 && ioctl_addr < 27'h20200 ? ioctl_wr : 1'b0;
-wire [7:0]  bg_color_addr = ioctl_download ? ioctl_addr - 27'h20200 : sc_addr;
-wire        bg_color_wren = ioctl_download && ioctl_addr >= 27'h20200 && ioctl_addr < 27'h20300 ? ioctl_wr : 1'b0;
 
 /******** GFX ROMs ********/
 
@@ -171,22 +162,23 @@ wire [7:0] srom_dout_c = ~sca[13] ? gfx_rom7_q : gfx_rom8_q;
 
 
 wire [7:0]  gfx_rom_data     = ioctl_dout;
-wire [12:0] gfx_rom1_addr    = ioctl_download ? ioctl_addr - 27'h10000 : rca[12:0];
 wire        gfx_rom1_wren_a  = ioctl_download && ioctl_addr >= 27'h10000 && ioctl_addr < 27'h12000 ? ioctl_wr : 1'b0;
-wire [12:0] gfx_rom2_addr    = ioctl_download ? ioctl_addr - 27'h12000 : rca[12:0];
+wire [12:0] gfx_rom1_addr = rca[12:0];
 wire        gfx_rom2_wren_a  = ioctl_download && ioctl_addr >= 27'h12000 && ioctl_addr < 27'h14000 ? ioctl_wr : 1'b0;
-wire [12:0] gfx_rom3_addr    = ioctl_download ? ioctl_addr - 27'h14000 : sca[12:0];
+wire [12:0] gfx_rom2_addr = rca[12:0];
 wire        gfx_rom3_wren_a  = ioctl_download && ioctl_addr >= 27'h14000 && ioctl_addr < 27'h16000 ? ioctl_wr : 1'b0;
-wire [12:0] gfx_rom4_addr    = ioctl_download ? ioctl_addr - 27'h16000 : sca[12:0];
+wire [12:0] gfx_rom3_addr = sca[12:0];
 wire        gfx_rom4_wren_a  = ioctl_download && ioctl_addr >= 27'h16000 && ioctl_addr < 27'h18000 ? ioctl_wr : 1'b0;
-wire [12:0] gfx_rom5_addr    = ioctl_download ? ioctl_addr - 27'h18000 : sca[12:0];
+wire [12:0] gfx_rom4_addr = sca[12:0];
 wire        gfx_rom5_wren_a  = ioctl_download && ioctl_addr >= 27'h18000 && ioctl_addr < 27'h1a000 ? ioctl_wr : 1'b0;
-wire [12:0] gfx_rom6_addr    = ioctl_download ? ioctl_addr - 27'h1a000 : sca[12:0];
+wire [12:0] gfx_rom5_addr = sca[12:0];
 wire        gfx_rom6_wren_a  = ioctl_download && ioctl_addr >= 27'h1a000 && ioctl_addr < 27'h1c000 ? ioctl_wr : 1'b0;
-wire [12:0] gfx_rom7_addr    = ioctl_download ? ioctl_addr - 27'h1c000 : sca[12:0];
+wire [12:0] gfx_rom6_addr = sca[12:0];
 wire        gfx_rom7_wren_a  = ioctl_download && ioctl_addr >= 27'h1c000 && ioctl_addr < 27'h1e000 ? ioctl_wr : 1'b0;
-wire [12:0] gfx_rom8_addr    = ioctl_download ? ioctl_addr - 27'h1e000 : sca[12:0];
+wire [12:0] gfx_rom7_addr = sca[12:0];
 wire        gfx_rom8_wren_a  = ioctl_download && ioctl_addr >= 27'h1e000 && ioctl_addr < 27'h20000 ? ioctl_wr : 1'b0;
+wire [12:0] gfx_rom8_addr = sca[12:0];
+
 
 /******** CLOCKS ********/
 
@@ -420,35 +412,22 @@ wire [10:0] avs = ~sad_sel_n ? mcpu_addr[10:0] : { hcount[1], xv[7:3], xh[7:3] }
 //  .wren_a    ( mcpu_rom0_wren_a )
 //);
 
-dualport_2clk_ram #(.FALLING_A(1),.ADDR_WIDTH(14),.DATA_WIDTH(8)) mcpu_rom0(
+
+dualport_2clk_ram #(
+    .FALLING_A(1),
+    .ADDR_WIDTH(14),
+    .DATA_WIDTH(8)
+) mcpu_rom0(
 	.clock_a(dn_clk),
-	.wren_a(mcpu_rom0_wren_a),
 	.address_a(ioctl_addr[13:0]),
 	.data_a(mcpu_rom_data),
+	.wren_a(mcpu_rom0_wren_a),
+	.q_a(),
 	
 	.clock_b(clk_sys),
 	.address_b(mcpu_rom0_addr),
 	.q_b(mcpu_rom0_q)
 );
-
-/*
-dualport_2clk_ram 
-#(  .FALLING_A(1),
-    .ADDR_WIDTH(14),
-    .DATA_WIDTH(8),
-    .ROM_PRELOAD(1),
-    .ROM_FILE("../../CORE/Arcade-BankPanic_MiSTer/epr-6175.7e.hex"),
-    .ROM_FILE_HEX(1)
-) mcpu_rom0 (
-	.clock_a(dn_clk),
-	.wren_a(mcpu_rom0_wren_a),
-	.address_a(ioctl_addr[13:0]),
-	.data_a(mcpu_rom_data),
-	
-	.clock_b(clk_sys),
-	.address_b(mcpu_rom0_addr),
-	.q_b(mcpu_rom0_q)
-);*/
 
 //dpram #(14,8) mcpu_rom1(
 //  .clock     ( clk_sys          ),
@@ -459,37 +438,21 @@ dualport_2clk_ram
 //  .wren_a    ( mcpu_rom1_wren_a )
 //);
 
-
-dualport_2clk_ram #(.FALLING_A(1),.ADDR_WIDTH(14),.DATA_WIDTH(8)) mcpu_rom1(
+dualport_2clk_ram #(
+    .FALLING_A(1),
+    .ADDR_WIDTH(14),
+    .DATA_WIDTH(8)
+) mcpu_rom1(
 	.clock_a(dn_clk),
-	.wren_a(mcpu_rom1_wren_a),
 	.address_a(ioctl_addr[13:0]),
 	.data_a(mcpu_rom_data),
+	.wren_a(mcpu_rom1_wren_a),
+	.q_a(),
 	
 	.clock_b(clk_sys),
 	.address_b(mcpu_rom1_addr),
 	.q_b(mcpu_rom1_q)
 );
-
-/*
-dualport_2clk_ram 
-#(  .FALLING_A(1),
-    .ADDR_WIDTH(14),
-    .DATA_WIDTH(8),
-    .ROM_PRELOAD(1),
-    .ROM_FILE("../../CORE/Arcade-BankPanic_MiSTer/epr-6174.7f.hex"),
-    .ROM_FILE_HEX(1)
-) mcpu_rom1 (
-	.clock_a(dn_clk),
-	.wren_a(mcpu_rom1_wren_a),
-	.address_a(ioctl_addr[13:0]),
-	.data_a(mcpu_rom_data),
-	
-	.clock_b(clk_sys),
-	.address_b(mcpu_rom1_addr),
-	.q_b(mcpu_rom1_q)
-);*/
-
 
 //dpram #(14,8) mcpu_rom2(
 //  .clock     ( clk_sys          ),
@@ -500,37 +463,22 @@ dualport_2clk_ram
 //  .wren_a    ( mcpu_rom2_wren_a )
 //);
 
-
-dualport_2clk_ram #(.FALLING_A(1),.ADDR_WIDTH(14),.DATA_WIDTH(8)) mcpu_rom2(
-	.clock_a(dn_clk),
-	.wren_a(mcpu_rom2_wren_a),
-	.address_a(ioctl_addr[13:0]),
-	.data_a(mcpu_rom_data),
-	
-	.clock_b(clk_sys),
-	.address_b(mcpu_rom2_addr),
-	.q_b(mcpu_rom2_q)
-);
-
-/*
-dualport_2clk_ram 
-#(  .FALLING_A(1),
+dualport_2clk_ram #(
+    .FALLING_A(1),
     .ADDR_WIDTH(14),
-    .DATA_WIDTH(8),
-    .ROM_PRELOAD(1),
-    .ROM_FILE("../../CORE/Arcade-BankPanic_MiSTer/epr-6173.7h.hex"),
-    .ROM_FILE_HEX(1)
-) mcpu_rom2 (
+    .DATA_WIDTH(8)
+) mcpu_rom2(
 	.clock_a(dn_clk),
-	.wren_a(mcpu_rom2_wren_a),
 	.address_a(ioctl_addr[13:0]),
 	.data_a(mcpu_rom_data),
+	.wren_a(mcpu_rom2_wren_a),
+	.q_a(),
 	
 	.clock_b(clk_sys),
 	.address_b(mcpu_rom2_addr),
 	.q_b(mcpu_rom2_q)
 );
-*/
+
 
 //dpram #(14,8) mcpu_rom3(
 //  .clock     ( clk_sys          ),
@@ -541,39 +489,22 @@ dualport_2clk_ram
  // .wren_a    ( mcpu_rom3_wren_a )
 //);
 
-
-dualport_2clk_ram #(.FALLING_A(1),.ADDR_WIDTH(13),.DATA_WIDTH(8)) mcpu_rom3(
-//dualport_2clk_ram #(.FALLING_A(1),.ADDR_WIDTH(14),.DATA_WIDTH(8)) mcpu_rom3(
-	.clock_a(dn_clk),
-	.wren_a(mcpu_rom3_wren_a),
-	.address_a(ioctl_addr[12:0]),
-	//.address_a(ioctl_addr[13:0]),
-	.data_a(mcpu_rom_data ),
-	
-	.clock_b(clk_sys),
-	.address_b(mcpu_rom3_addr),
-	.q_b(mcpu_rom3_q)
-);
-
-/*
-dualport_2clk_ram 
-#(  .FALLING_A(1),
+dualport_2clk_ram #(
+    .FALLING_A(1),
     .ADDR_WIDTH(14),
-    .DATA_WIDTH(8),
-    .ROM_PRELOAD(1),
-    .ROM_FILE("../../CORE/Arcade-BankPanic_MiSTer/epr-6176.7d_.hex"),
-    .ROM_FILE_HEX(1)
-) mcpu_rom3 (
+    .DATA_WIDTH(8)
+) mcpu_rom3(
 	.clock_a(dn_clk),
-	.wren_a(mcpu_rom3_wren_a),
 	.address_a(ioctl_addr[13:0]),
 	.data_a(mcpu_rom_data),
+	.wren_a(mcpu_rom3_wren_a),
+	.q_a(),
 	
 	.clock_b(clk_sys),
 	.address_b(mcpu_rom3_addr),
 	.q_b(mcpu_rom3_q)
 );
-*/
+
 
 //dpram #(11,8) mcpu_wram(
 //  .clock     ( clk_sys                 ),
@@ -592,14 +523,6 @@ dualport_2clk_ram #(.ADDR_WIDTH(11),.DATA_WIDTH(8)) mcpu_wram(
 	.q_a(mcpu_wram_q ),
 	.wren_a(~wram_cs_n & ~mcpu_wr_n)
 );
-
-/*gen_ram #(.aWidth(11),.dWidth(8)) mcpu_wram(
-	.clk(clk_sys),
-	.addr(mcpu_addr[10:0]),
-	.d(mcpu_dout),
-	.q(mcpu_wram_q ),
-	.we(~wram_cs_n & ~mcpu_wr_n)
-);*/
 
 // vram bg
 
@@ -621,14 +544,6 @@ dualport_2clk_ram #(.ADDR_WIDTH(11),.DATA_WIDTH(8)) sram(
 	.wren_a(~srwr_n)
 );
 
-/*gen_ram #(.aWidth(11),.dWidth(8)) sram(
-	.clk(clk_sys),
-	.addr(avs),
-	.d(mcpu_dout),
-	.q(sram_q),
-	.we(~srwr_n)
-);*/
-
 // vram fg
 
 //dpram #(11,8) rram(
@@ -647,14 +562,6 @@ dualport_2clk_ram #(.ADDR_WIDTH(11),.DATA_WIDTH(8)) rram(
 	.q_a(rram_q),
 	.wren_a(~rrwr_n)
 );
-
-/*gen_ram #(.aWidth(11),.dWidth(8)) rram(
-	.clk(clk_sys),
-	.addr(avr),
-	.d(mcpu_dout),
-	.q(rram_q),
-	.we(~rrwr_n)
-);*/
 
 /******** MCPU I/O & DATA BUS ********/
 
@@ -852,29 +759,8 @@ end
 //  .wren_a    ( fg_color_wren )
 //);
 
-
-/*
-dualport_2clk_ram 
-#(  .FALLING_A(1),
-    .ADDR_WIDTH(8),
-    .DATA_WIDTH(4),
-    .ROM_PRELOAD(1),
-    .ROM_FILE("../../CORE/Arcade-BankPanic_MiSTer/pr-6178.6f.hex"),
-    .ROM_FILE_HEX(1)
-) fg_color_lut (
-	.clock_a(dn_clk),
-	.wren_a(fg_color_wren),
-	.address_a(ioctl_addr[7:0]),
-	.data_a(col_data[3:0]),
-	
-	.clock_b(clk_sys),
-	.address_b(fg_color_addr),
-	.q_b(rcol)
-);*/
-
-
-
 dualport_2clk_ram #(.FALLING_A(1),.ADDR_WIDTH(8),.DATA_WIDTH(4)) fg_color_lut(
+//dualport_2clk_ram #(.FALLING_A(1),.ADDR_WIDTH(8),.DATA_WIDTH(8)) fg_color_lut(
 	.clock_a(dn_clk),
 	.wren_a(fg_color_wren),
 	.address_a(ioctl_addr[7:0]),
@@ -895,25 +781,6 @@ dualport_2clk_ram #(.FALLING_A(1),.ADDR_WIDTH(8),.DATA_WIDTH(4)) fg_color_lut(
 //  .wren_a    ( bg_color_wren )
 //);
 
-/*
-dualport_2clk_ram 
-#(  .FALLING_A(1),
-    .ADDR_WIDTH(8),
-    .DATA_WIDTH(4),
-    .ROM_PRELOAD(1),
-    .ROM_FILE("../../CORE/Arcade-BankPanic_MiSTer/pr-6179.5a.hex"),
-    .ROM_FILE_HEX(1)
-) bg_color_lut (
-	.clock_a(dn_clk),
-	.wren_a(bg_color_wren),
-	.address_a(ioctl_addr[7:0]),
-	.data_a(col_data[3:0]),
-	
-	.clock_b(clk_sys),
-	.address_b(bg_color_addr),
-	.q_b(scol)
-);*/
-
 
 dualport_2clk_ram #(.FALLING_A(1),.ADDR_WIDTH(8),.DATA_WIDTH(4)) bg_color_lut(
 	.clock_a(dn_clk),
@@ -927,7 +794,6 @@ dualport_2clk_ram #(.FALLING_A(1),.ADDR_WIDTH(8),.DATA_WIDTH(4)) bg_color_lut(
 );
 
 
-
 //dpram #(5,8) palette(
 //  .clock     ( clk_sys  ),
 //  .address_a ( pal_addr ),
@@ -937,8 +803,6 @@ dualport_2clk_ram #(.FALLING_A(1),.ADDR_WIDTH(8),.DATA_WIDTH(4)) bg_color_lut(
 // .wren_a    ( pal_wren )
 //);
 
-
-
 dualport_2clk_ram #(.FALLING_A(1),.ADDR_WIDTH(8),.DATA_WIDTH(8)) palette(
 	.clock_a(dn_clk),
 	.wren_a(pal_wren),
@@ -946,28 +810,9 @@ dualport_2clk_ram #(.FALLING_A(1),.ADDR_WIDTH(8),.DATA_WIDTH(8)) palette(
 	.data_a(col_data),
 	
 	.clock_b(clk_sys),
-	.address_b(pal_addr[4:0]),
-	.q_b(pal_data)
-);
-
-/*
-dualport_2clk_ram 
-#(  .FALLING_A(1),
-    .ADDR_WIDTH(5),
-    .DATA_WIDTH(8),
-    .ROM_PRELOAD(1),
-    .ROM_FILE("../../CORE/Arcade-BankPanic_MiSTer/pr-6177.8a.hex"),
-    .ROM_FILE_HEX(1)
-) palette (
-	.clock_a(dn_clk),
-	.wren_a(pal_wren),
-	.address_a(ioctl_addr[4:0]),
-	.data_a(col_data),
-	
-	.clock_b(clk_sys),
 	.address_b(pal_addr),
 	.q_b(pal_data)
-);*/
+);
 
 // fg
 
@@ -980,7 +825,6 @@ dualport_2clk_ram
 //  .wren_a    ( gfx_rom1_wren_a )
 //);
 
-
 dualport_2clk_ram #(.FALLING_A(1),.ADDR_WIDTH(13),.DATA_WIDTH(8)) gfx_rom1(
 	.clock_a(dn_clk),
 	.wren_a(gfx_rom1_wren_a),
@@ -992,25 +836,7 @@ dualport_2clk_ram #(.FALLING_A(1),.ADDR_WIDTH(13),.DATA_WIDTH(8)) gfx_rom1(
 	.q_b(gfx_rom1_q)
 );
 
-/*
-dualport_2clk_ram 
-#(  .FALLING_A(1),
-    .ADDR_WIDTH(13),
-    .DATA_WIDTH(8),
-    .ROM_PRELOAD(1),
-    .ROM_FILE("../../CORE/Arcade-BankPanic_MiSTer/epr-6165.5l.hex"),
-    .ROM_FILE_HEX(1)
-) gfx_rom1 (
-	.clock_a(dn_clk),
-	.wren_a(gfx_rom1_wren_a),
-	.address_a(ioctl_addr[12:0]),
-	.data_a(gfx_rom_data),
-	
-	.clock_b(clk_sys),
-	.address_b(gfx_rom1_addr),
-	.q_b(gfx_rom1_q)
-);
-*/
+
 
 //dpram #(13,8) gfx_rom2(
 //  .clock     ( clk_sys         ),
@@ -1020,7 +846,6 @@ dualport_2clk_ram
 //  .rden_a    ( 1'b1            ),
 //  .wren_a    ( gfx_rom2_wren_a )
 //);
-
 
 dualport_2clk_ram #(.FALLING_A(1),.ADDR_WIDTH(13),.DATA_WIDTH(8)) gfx_rom2(
 	.clock_a(dn_clk),
@@ -1034,26 +859,6 @@ dualport_2clk_ram #(.FALLING_A(1),.ADDR_WIDTH(13),.DATA_WIDTH(8)) gfx_rom2(
 );
 
 
-/*
-dualport_2clk_ram 
-#(  .FALLING_A(1),
-    .ADDR_WIDTH(13),
-    .DATA_WIDTH(8),
-    .ROM_PRELOAD(1),
-    .ROM_FILE("../../CORE/Arcade-BankPanic_MiSTer/epr-6166.5k.hex"),
-    .ROM_FILE_HEX(1)
-) gfx_rom2 (
-	.clock_a(dn_clk),
-	.wren_a(gfx_rom2_wren_a),
-	.address_a(ioctl_addr[12:0]),
-	.data_a(gfx_rom_data),
-	
-	.clock_b(clk_sys),
-	.address_b(gfx_rom2_addr),
-	.q_b(gfx_rom2_q)
-);
-*/
-
 // bg
 
 //dpram #(13,8) gfx_rom3(
@@ -1064,7 +869,6 @@ dualport_2clk_ram
 // .rden_a    ( 1'b1            ),
 //  .wren_a    ( gfx_rom3_wren_a )
 //);
-
 
 dualport_2clk_ram #(.FALLING_A(1),.ADDR_WIDTH(13),.DATA_WIDTH(8)) gfx_rom3(
 	.clock_a(dn_clk),
@@ -1077,25 +881,7 @@ dualport_2clk_ram #(.FALLING_A(1),.ADDR_WIDTH(13),.DATA_WIDTH(8)) gfx_rom3(
 	.q_b(gfx_rom3_q)
 );
 
-/*
-dualport_2clk_ram 
-#(  .FALLING_A(1),
-    .ADDR_WIDTH(13),
-    .DATA_WIDTH(8),
-    .ROM_PRELOAD(1),
-    .ROM_FILE("../../CORE/Arcade-BankPanic_MiSTer/epr-6172.5b.hex"),
-    .ROM_FILE_HEX(1)
-) gfx_rom3 (
-	.clock_a(dn_clk),
-	.wren_a(gfx_rom3_wren_a),
-	.address_a(ioctl_addr[12:0]),
-	.data_a(gfx_rom_data),
-	
-	.clock_b(clk_sys),
-	.address_b(gfx_rom3_addr),
-	.q_b(gfx_rom3_q)
-);
-*/
+
 
 //dpram #(13,8) gfx_rom4(
 //  .clock     ( clk_sys         ),
@@ -1117,26 +903,6 @@ dualport_2clk_ram #(.FALLING_A(1),.ADDR_WIDTH(13),.DATA_WIDTH(8)) gfx_rom4(
 	.q_b(gfx_rom4_q)
 );
 
-/*
-dualport_2clk_ram 
-#(  .FALLING_A(1),
-    .ADDR_WIDTH(13),
-    .DATA_WIDTH(8),
-    .ROM_PRELOAD(1),
-    .ROM_FILE("../../CORE/Arcade-BankPanic_MiSTer/epr-6171.5d.hex"),
-    .ROM_FILE_HEX(1)
-) gfx_rom4 (
-	.clock_a(dn_clk),
-	.wren_a(gfx_rom4_wren_a),
-	.address_a(ioctl_addr[12:0]),
-	.data_a(gfx_rom_data),
-	
-	.clock_b(clk_sys),
-	.address_b(gfx_rom4_addr),
-	.q_b(gfx_rom4_q)
-);
-*/
-
 //dpram #(13,8) gfx_rom5(
 //  .clock     ( clk_sys         ),
 //  .address_a ( gfx_rom5_addr   ),
@@ -1156,25 +922,6 @@ dualport_2clk_ram #(.FALLING_A(1),.ADDR_WIDTH(13),.DATA_WIDTH(8)) gfx_rom5(
 	.address_b(gfx_rom5_addr),
 	.q_b(gfx_rom5_q)
 );
-
-/*
-dualport_2clk_ram 
-#(  .FALLING_A(1),
-    .ADDR_WIDTH(13),
-    .DATA_WIDTH(8),
-    .ROM_PRELOAD(1),
-    .ROM_FILE("../../CORE/Arcade-BankPanic_MiSTer/epr-6170.5e.hex"),
-    .ROM_FILE_HEX(1)
-) gfx_rom5 (
-	.clock_a(dn_clk),
-	.wren_a(gfx_rom5_wren_a),
-	.address_a(ioctl_addr[12:0]),
-	.data_a(gfx_rom_data),
-	
-	.clock_b(clk_sys),
-	.address_b(gfx_rom5_addr),
-	.q_b(gfx_rom5_q)
-);*/
 
 //dpram #(13,8) gfx_rom6(
 //  .clock     ( clk_sys         ),
@@ -1196,25 +943,6 @@ dualport_2clk_ram #(.FALLING_A(1),.ADDR_WIDTH(13),.DATA_WIDTH(8)) gfx_rom6(
 	.q_b(gfx_rom6_q)
 );
 
-/*
-dualport_2clk_ram 
-#(  .FALLING_A(1),
-    .ADDR_WIDTH(13),
-    .DATA_WIDTH(8),
-    .ROM_PRELOAD(1),
-    .ROM_FILE("../../CORE/Arcade-BankPanic_MiSTer/epr-6169.5f.hex"),
-    .ROM_FILE_HEX(1)
-) gfx_rom6 (
-	.clock_a(dn_clk),
-	.wren_a(gfx_rom6_wren_a),
-	.address_a(ioctl_addr[12:0]),
-	.data_a(gfx_rom_data),
-	
-	.clock_b(clk_sys),
-	.address_b(gfx_rom6_addr),
-	.q_b(gfx_rom6_q)
-);
-*/
 
 //dpram #(13,8) gfx_rom7(
 //  .clock     ( clk_sys         ),
@@ -1224,7 +952,6 @@ dualport_2clk_ram
 //  .rden_a    ( 1'b1            ),
 //  .wren_a    ( gfx_rom7_wren_a )
 //);
-
 
 dualport_2clk_ram #(.FALLING_A(1),.ADDR_WIDTH(13),.DATA_WIDTH(8)) gfx_rom7(
 	.clock_a(dn_clk),
@@ -1236,25 +963,6 @@ dualport_2clk_ram #(.FALLING_A(1),.ADDR_WIDTH(13),.DATA_WIDTH(8)) gfx_rom7(
 	.address_b(gfx_rom7_addr),
 	.q_b(gfx_rom7_q)
 );
-
-/*
-dualport_2clk_ram 
-#(  .FALLING_A(1),
-    .ADDR_WIDTH(13),
-    .DATA_WIDTH(8),
-    .ROM_PRELOAD(1),
-    .ROM_FILE("../../CORE/Arcade-BankPanic_MiSTer/epr-6168.5h.hex"),
-    .ROM_FILE_HEX(1)
-) gfx_rom7 (
-	.clock_a(dn_clk),
-	.wren_a(gfx_rom7_wren_a),
-	.address_a(ioctl_addr[12:0]),
-	.data_a(gfx_rom_data),
-	
-	.clock_b(clk_sys),
-	.address_b(gfx_rom7_addr),
-	.q_b(gfx_rom7_q)
-);*/
 
 //dpram #(13,8) gfx_rom8(
 //  .clock     ( clk_sys         ),
@@ -1275,26 +983,6 @@ dualport_2clk_ram #(.FALLING_A(1),.ADDR_WIDTH(13),.DATA_WIDTH(8)) gfx_rom8(
 	.address_b(gfx_rom8_addr),
 	.q_b(gfx_rom8_q)
 );
-
-/*
-dualport_2clk_ram 
-#(  .FALLING_A(1),
-    .ADDR_WIDTH(13),
-    .DATA_WIDTH(8),
-    .ROM_PRELOAD(1),
-    .ROM_FILE("../../CORE/Arcade-BankPanic_MiSTer/epr-6167.5i.hex"),
-    .ROM_FILE_HEX(1)
-) gfx_rom8 (
-	.clock_a(dn_clk),
-	.wren_a(gfx_rom8_wren_a),
-	.address_a(ioctl_addr[12:0]),
-	.data_a(gfx_rom_data),
-	
-	.clock_b(clk_sys),
-	.address_b(gfx_rom8_addr),
-	.q_b(gfx_rom8_q)
-);
-*/
 
 /******** AUDIO ********/
 
