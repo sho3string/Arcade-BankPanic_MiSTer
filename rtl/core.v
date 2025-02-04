@@ -760,7 +760,6 @@ end
 //);
 
 dualport_2clk_ram #(.FALLING_A(1),.ADDR_WIDTH(8),.DATA_WIDTH(4)) fg_color_lut(
-//dualport_2clk_ram #(.FALLING_A(1),.ADDR_WIDTH(8),.DATA_WIDTH(8)) fg_color_lut(
 	.clock_a(dn_clk),
 	.wren_a(fg_color_wren),
 	.address_a(ioctl_addr[7:0]),
